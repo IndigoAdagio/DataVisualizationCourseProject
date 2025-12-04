@@ -1,5 +1,6 @@
 const MAP_CENTER = [35.86, 104.19];
 const MAP_ZOOM = 4.5;
+const MAX_CITY_COUNT = 350; // safety valve for API responses; demo data is already limited to national coverage
 
 const colorScale = d3
   .scaleThreshold()
@@ -21,6 +22,9 @@ let data;
 async function loadData() {
   const res = await fetch("data/sample_data.json");
   data = await res.json();
+  if (data.cities.length > MAX_CITY_COUNT) {
+    data.cities = data.cities.slice(0, MAX_CITY_COUNT);
+  }
   document.getElementById("lastUpdated").textContent = new Date(data.lastUpdated).toLocaleString();
   initializeControls();
   initializeMap();
@@ -51,10 +55,18 @@ function initializeControls() {
 }
 
 function initializeMap() {
-  map = L.map("map", { zoomControl: false }).setView(MAP_CENTER, MAP_ZOOM);
+  map = L.map("map", {
+    zoomControl: false,
+    maxBounds: [
+      [14, 73],
+      [54, 135]
+    ],
+    maxBoundsViscosity: 0.8
+  }).setView(MAP_CENTER, MAP_ZOOM);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     maxZoom: 8,
-    attribution: "© OpenStreetMap contributors"
+    attribution: "© OpenStreetMap contributors",
+    noWrap: true
   }).addTo(map);
 
   cityLayer = L.layerGroup().addTo(map);

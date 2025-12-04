@@ -2,6 +2,8 @@
 
 A single-page, multi-view dashboard that combines a national pollution heatmap, brushable historical trends, and pollutant composition charts. The design follows the interactive storytelling ideas in [Zeng et al. (2025)](https://arxiv.org/pdf/2507.09917) and uses mock data that can be replaced with live CNEMC and meteorological feeds.
 
+The bundled sample data now covers a dozen major mainland cities (Beijing, Shanghai, Guangzhou, Shenzhen, Chengdu, Wuhan, Xi'an, Nanjing, Hangzhou, Chongqing, Shenyang, Harbin, Urumqi) with multi-year history (2019–2024). When swapping in a full CNEMC API feed, adjust `MAX_CITY_COUNT` in `src/app.js` if you need a protective cap against API rate limits; by default, the demo loads all provided cities.
+
 ## Features
 - **Multi-view coordination**: Leaflet map heatmap, D3 time series, stacked bar, and radar chart linked by city and timeline selections.
 - **Data storytelling**: Event strip and timeline animation to show how holidays and policy actions affect air quality.
