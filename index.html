@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spatiotemporal Air Quality Explorer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Spatiotemporal Air Quality Explorer</h1>
+      <p class="subtitle">Coordinated map, time series, and composition views for PM2.5, SO<sub>2</sub>, NO<sub>2</sub>, O<sub>3</sub> and more.</p>
+    </div>
+    <div class="reference">
+      <span>Inspired by multi-view storytelling in</span>
+      <a href="https://arxiv.org/pdf/2507.09917" target="_blank" rel="noreferrer">Zeng et al. (2025)</a>
+    </div>
+  </header>
+
+  <section class="controls">
+    <div class="control-group">
+      <label for="citySelect">City focus</label>
+      <select id="citySelect"></select>
+    </div>
+    <div class="control-group">
+      <label for="metricSelect">Metric</label>
+      <select id="metricSelect">
+        <option value="aqi">AQI</option>
+        <option value="pm25">PM2.5</option>
+        <option value="so2">SO₂</option>
+        <option value="no2">NO₂</option>
+        <option value="o3">O₃</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="playButton">Animated timeline</label>
+      <button id="playButton" class="primary">Play</button>
+    </div>
+    <div class="control-group">
+      <label>Data freshness</label>
+      <span id="lastUpdated">—</span>
+    </div>
+  </section>
+
+  <main class="grid">
+    <article class="card map-card">
+      <header>
+        <div>
+          <h2>Heatmap: National pollution distribution</h2>
+          <p>Real-time AQI mapped with kriging-style interpolation (sample data).</p>
+        </div>
+        <div class="legend" id="legend"></div>
+      </header>
+      <div id="map"></div>
+    </article>
+
+    <article class="card time-card">
+      <header>
+        <h2>Brushable time series (2015-2024)</h2>
+        <p>Explore historical trends and seasonal spikes for the selected city.</p>
+      </header>
+      <svg id="timeSeries" aria-label="AQI time series"></svg>
+      <div class="event-strip" id="eventStrip"></div>
+    </article>
+
+    <article class="card composition-card">
+      <header>
+        <h2>Composition analysis</h2>
+        <p>Stacked bars for latest measurements and radar for proportion.</p>
+      </header>
+      <div class="composition-layout">
+        <svg id="stackedBar" aria-label="Pollutant stacked bar chart"></svg>
+        <svg id="radarChart" aria-label="Pollutant radar chart"></svg>
+      </div>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <p>Data sources: China National Environmental Monitoring Centre (mocked), OpenWeatherMap (mocked). Spatial interpolation illustrated with sampled grid.</p>
+    <p>Preprocessing: missing value handling, daily AQI aggregation, and kriging-style smoothing implemented in <code>src/app.js</code>.</p>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>
