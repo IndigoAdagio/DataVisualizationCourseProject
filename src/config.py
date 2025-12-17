@@ -1,19 +1,19 @@
 from pathlib import Path
 
-# 项目根目录（air_quality_analytics）
+# Project root directory (air_quality_analytics)
 BASE_DIR = Path(__file__).resolve().parents[1]
 
-# 数据目录
+# Data directories
 DATA_DIR = BASE_DIR / "data"
 SAMPLE_RAW_DATA_DIR = DATA_DIR / "sample_raw"
 RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 
-# 处理后数据路径
+# Processed data paths
 HOURLY_PATH = PROCESSED_DIR / "hourly.parquet"
 DAILY_CITY_PATH = PROCESSED_DIR / "daily_city.parquet"
 
-# 主要污染物字段（列名）
+# Main pollutant columns
 POLLUTANT_COLUMNS = [
     "pm2_5",
     "pm10",
@@ -23,7 +23,7 @@ POLLUTANT_COLUMNS = [
     "co",
 ]
 
-# 所有数值型字段，可用于聚合
+# Numeric columns used in aggregations
 NUMERIC_COLUMNS = [
     "aqi",
     "pm2_5",
@@ -42,6 +42,6 @@ NUMERIC_COLUMNS = [
     "co_24h",
 ]
 
-# AQI 简单等级阈值（可在可视化中使用）
+# AQI binning and labels (simple version for visualization)
 AQI_BINS = [0, 50, 100, 150, 200, 300, 500]
-AQI_LABELS = ["优", "良", "轻度污染", "中度污染", "重度污染", "严重污染"]
+AQI_LABELS = ["Excellent", "Good", "Lightly Polluted", "Moderately Polluted", "Heavily Polluted", "Severely Polluted"]

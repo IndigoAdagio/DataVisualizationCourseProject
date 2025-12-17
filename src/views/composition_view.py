@@ -21,13 +21,13 @@ def render_composition_view(
     selected_cities: list[str],
 ) -> None:
     """
-    污染物组成视图：
+    Pollutant composition view.
 
-    - 柱状图：多个城市的主要污染物平均浓度对比
-    - 雷达图：单城市的污染物构成
+    - Bar chart: average pollutant concentrations across cities
+    - Radar chart: pollutant profile for a single city
     """
     if hourly_df.empty:
-        st.info("当前筛选条件下没有数据用于组成分析。")
+        st.info("No data available for the current filters to render composition view.")
         return
 
     df = hourly_df.copy()
@@ -36,13 +36,13 @@ def render_composition_view(
         df = df[df["city"].isin(selected_cities)]
 
     if df.empty:
-        st.info("筛选后的数据为空，请调整筛选条件。")
+        st.info("Filtered data is empty. Try relaxing the filters.")
         return
 
-    # ---------- 柱状图：多城市平均浓度对比 ----------
+    # Bar chart: average concentration by city
     numeric_cols = [c for c in POLLUTANT_COLUMNS if c in df.columns]
     if not numeric_cols:
-        st.warning("数据中不包含任何主要污染物字段。")
+        st.warning("No pollutant columns found in data.")
         return
 
     group = (
@@ -61,7 +61,7 @@ def render_composition_view(
         long_df["pollutant"],
     )
 
-    st.subheader("主要污染物平均浓度对比")
+    st.subheader("Average pollutant concentration across cities")
     fig_bar = px.bar(
         long_df,
         x="pollutant_label",
@@ -72,14 +72,14 @@ def render_composition_view(
     fig_bar.update_layout(
         height=450,
         margin=dict(l=0, r=0, t=10, b=0),
-        xaxis_title="污染物",
-        yaxis_title="平均浓度（示意单位）",
-        legend_title="城市",
+        xaxis_title="Pollutant",
+        yaxis_title="Average concentration (illustrative units)",
+        legend_title="City",
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
-    # ---------- 雷达图：单城市污染物构成 ----------
-    st.subheader("单城市污染物构成（雷达图）")
+    # Radar chart: single city pollutant profile
+    st.subheader("Single-city pollutant profile (radar chart)")
     city_options = group["city"].dropna().unique().tolist()
     default_city = (
         selected_cities[0]
@@ -88,24 +88,24 @@ def render_composition_view(
     )
 
     if not city_options or default_city is None:
-        st.info("当前没有可用于绘制雷达图的城市数据。")
+        st.info("No city data available to render radar chart.")
         return
 
     city = st.selectbox(
-        "选择城市",
+        "Select city",
         options=city_options,
         index=city_options.index(default_city),
     )
 
     row = group[group["city"] == city]
     if row.empty:
-        st.info("该城市没有足够的数据绘制雷达图。")
+        st.info("Not enough data for this city to render radar chart.")
         return
 
     values = [float(row.iloc[0][c]) if c in row.columns else 0.0 for c in numeric_cols]
     labels = [_POLLUTANT_LABELS.get(c, c) for c in numeric_cols]
 
-    # 雷达图需要首尾闭合
+    # Radar chart needs closed loop (first value repeated at end)
     values_cycle = values + [values[0]]
     labels_cycle = labels + [labels[0]]
 

@@ -10,18 +10,14 @@ from sklearn.ensemble import RandomForestRegressor
 
 @dataclass
 class ForecastResult:
-    """封装预测结果，便于前端可视化。"""
+    """Container object for forecast results used in visualization."""
 
-    history: pd.DataFrame  # 包含历史真实值
-    forecast: pd.DataFrame  # 包含未来预测值（带时间戳）
+    history: pd.DataFrame  # Historical observed values
+    forecast: pd.DataFrame  # Future predicted values
 
 
 def _prepare_series(hourly_df: pd.DataFrame, city: str, value_col: str) -> pd.Series:
-    """
-    从小时级数据中提取指定城市的时间序列。
-
-    返回 index 为时间戳、值为目标污染物浓度的一维 Series。
-    """
+    """Extract a time series for a given city and pollutant column."""
     df = (
         hourly_df[hourly_df["city"] == city]
         .dropna(subset=["timestamp", value_col])
@@ -38,10 +34,10 @@ def _make_supervised(
     horizon: int = 1,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    将时间序列转换为监督学习格式：
-    使用过去 n_lags 个时间步预测 horizon 步之后的值。
+    Convert a time series into supervised learning format.
 
-    返回 X.shape = (样本数, n_lags), y.shape = (样本数,)
+    Uses the past n_lags values to predict the value after 'horizon' steps.
+    Returns X with shape (num_samples, n_lags) and y with shape (num_samples,).
     """
     values = series.values.astype(float)
     X, y = [], []
@@ -54,9 +50,9 @@ def _make_supervised(
 
 
 def _train_rf_regressor(X: np.ndarray, y: np.ndarray) -> RandomForestRegressor | None:
-    """训练一个简单的随机森林回归模型。"""
+    """Train a simple RandomForestRegressor as baseline model."""
     if X.shape[0] < 30:
-        # 样本太少，不足以训练有意义的模型
+        # Not enough samples to train a meaningful model
         return None
     model = RandomForestRegressor(
         n_estimators=200,
@@ -75,26 +71,23 @@ def forecast_for_city(
     n_lags: int = 24,
 ) -> ForecastResult | None:
     """
-    对指定城市的 AQI / PM2.5 等指标做简单预测。
+    Forecast AQI or a selected pollutant for a given city.
 
-    预测方法：
-    - 使用最近 n_lags 小时的值作为特征
-    - 使用 RandomForestRegressor 做回归
-    - 若样本不足或训练失败，则退化为“持久性预测”（未来值等于最后一个观测值）
-
-    返回
-    ------
-    ForecastResult 或 None
+    Method:
+    - Use the last n_lags hours as features
+    - Train RandomForestRegressor on all historical data
+    - Generate multi-step forecasts iteratively
+    - Fallback to naive persistence forecast if not enough data
     """
     series = _prepare_series(hourly_df, city, value_col)
     if len(series) < max(n_lags + horizon_hours, 10):
         return None
 
-    # 使用所有历史数据训练模型
+    # Build supervised samples
     X, y = _make_supervised(series, n_lags=n_lags, horizon=1)
     model = _train_rf_regressor(X, y)
 
-    # 预测未来 horizon_hours 小时
+    # Prepare forecast index
     last_timestamp = series.index.max()
     freq = pd.infer_freq(series.index) or "H"
     future_index = pd.date_range(
@@ -108,15 +101,15 @@ def forecast_for_city(
             "timestamp": series.index,
             "value": series.values,
             "type": "history",
-        }
+        },
     )
 
     if model is None:
-        # 简单持久性预测
+        # Naive persistence forecast
         last_value = float(series.iloc[-1])
         forecast_values = np.full(shape=horizon_hours, fill_value=last_value)
     else:
-        # 使用迭代方式做多步预测
+        # Multi-step iterative forecast
         window = series.values.astype(float)[-n_lags:].copy()
         forecast_values = []
         for _ in range(horizon_hours):
@@ -131,7 +124,7 @@ def forecast_for_city(
             "timestamp": future_index,
             "value": forecast_values,
             "type": "forecast",
-        }
+        },
     )
 
     return ForecastResult(history=history_df, forecast=forecast_df)

@@ -1,72 +1,90 @@
-import streamlit as st
-import plotly.express as px
+# src/views/map_view.py
+from __future__ import annotations
+import json
+from pathlib import Path
 import pandas as pd
+import plotly.express as px
+import streamlit as st
 
+_CHINA_CENTER = {"lat": 35.0, "lon": 103.8}
+_CHINA_ZOOM = 2.2
 
-def render_map_view(hourly_df: pd.DataFrame, value_col: str = "aqi") -> None:
-    """
-    空间分布地图视图。
+@st.cache_data(show_spinner=False)
+def _load_cn_province_geojson() -> dict:
+    url = "https://geo.datav.aliyun.com/areas_v3/bound/geojson?code=100000_full"
+    try:
+        import requests
+        r = requests.get(url, timeout=8)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        local = Path(__file__).resolve().parents[2] / "data" / "china_provinces.geojson"
+        if local.exists():
+            with open(local, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {"type": "FeatureCollection", "features": []}
 
-    逻辑：
-    - 取当前筛选数据中最新时间点的一帧数据作为“空间切片”
-    - 使用 Plotly 的 scatter_geo 画出全国站点/城市分布
-    """
-    if hourly_df.empty:
-        st.info("当前筛选条件下没有数据用于绘制地图。")
+def _guess_lat_lon_columns(df: pd.DataFrame) -> tuple[str | None, str | None]:
+    lon_candidates = ["lon", "lng", "longitude", "LONGITUDE", "Lon", "Lng"]
+    lat_candidates = ["lat", "latitude", "LATITUDE", "Lat"]
+    lon_col = next((c for c in lon_candidates if c in df.columns), None)
+    lat_col = next((c for c in lat_candidates if c in df.columns), None)
+    return lat_col, lon_col
+
+def render_map_view(df: pd.DataFrame, value_col: str = "aqi") -> None:
+    if df is None or df.empty:
+        st.info("No data available!")
         return
 
-    if "timestamp" not in hourly_df.columns:
-        st.warning("缺少 timestamp 字段，无法绘制地图。")
+    ts_col = "timestamp" if "timestamp" in df.columns else None
+    if ts_col is None or df[ts_col].isna().all():
+        latest = df.copy()
+    else:
+        latest_ts = df[ts_col].max()
+        latest = df[df[ts_col] == latest_ts].copy()
+
+    lat_col, lon_col = _guess_lat_lon_columns(latest)
+    if not lat_col or not lon_col:
+        city_centers = latest.groupby("city", as_index=False)[value_col].mean()
+        fig = px.scatter_geo(
+            city_centers,
+            locations="city",
+            locationmode="country names",
+            size=value_col,
+            color=value_col,
+            projection="natural earth",
+        )
+        fig.update_geos(fitbounds="locations", visible=False)
+        st.plotly_chart(fig, use_container_width=True)
         return
 
-    latest_ts = hourly_df["timestamp"].max()
-    latest_df = hourly_df[hourly_df["timestamp"] == latest_ts].copy()
-
-    if latest_df.empty:
-        st.info("当前筛选条件下最新时间片为空。")
-        return
-
-    if {"latitude", "longitude"}.issubset(latest_df.columns) is False:
-        st.warning("数据中缺少经纬度信息，无法绘制地图。")
-        return
-
-    # 若指标列不存在，则退回到 AQI
-    if value_col not in latest_df.columns:
-        st.warning(f"列 {value_col} 在数据中不存在，已退回使用 aqi。")
-        value_col = "aqi"
-
-    fig = px.scatter_geo(
-        latest_df,
-        lat="latitude",
-        lon="longitude",
+    fig = px.scatter_mapbox(
+        latest,
+        lat=lat_col,
+        lon=lon_col,
         color=value_col,
-        hover_name="station_name",
-        hover_data={
-            "city": True,
-            "aqi": True,
-            "pm2_5": True,
-            "pm10": True,
-            "so2": True,
-            "no2": True,
-            "o3": True,
-            "co": True,
-            "latitude": False,
-            "longitude": False,
-        },
+        hover_name=latest["city"] if "city" in latest.columns else None,
+        hover_data=[value_col] + ([ts_col] if ts_col else []),
         color_continuous_scale="RdYlGn_r",
-        projection="natural earth",
+        zoom=_CHINA_ZOOM,
+        height=430,
     )
-
     fig.update_layout(
-        height=500,
-        margin=dict(l=0, r=0, t=10, b=0),
-        geo=dict(
-            showcountries=True,
-            showland=True,
-            landcolor="rgb(240,240,240)",
-        ),
+        mapbox_style="carto-positron",
+        margin=dict(l=0, r=0, t=0, b=0),
         coloraxis_colorbar=dict(title=value_col.upper()),
+        mapbox=dict(center=_CHINA_CENTER, zoom=_CHINA_ZOOM),
     )
 
-    st.caption(f"地图时间截面：{latest_ts}")
+    provinces_geo = _load_cn_province_geojson()
+    existing_layers = list(fig.layout.mapbox.layers) if fig.layout.mapbox.layers else []
+    boundary_layer = dict(
+        source=provinces_geo,
+        type="line",
+        line={"width": 1},
+        color="rgba(80,80,80,0.75)",
+    )
+    existing_layers.insert(0, boundary_layer)
+    fig.update_layout(mapbox_layers=existing_layers)
+
     st.plotly_chart(fig, use_container_width=True)

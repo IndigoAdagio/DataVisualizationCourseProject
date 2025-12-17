@@ -5,19 +5,17 @@ import pandas as pd
 
 def _auto_detect_pollution_episode(df: pd.DataFrame) -> tuple[str, pd.Timestamp, pd.Timestamp] | None:
     """
-    自动在数据中识别一个“典型污染过程”：
+    Automatically detect a typical pollution episode.
 
-    - 先选择最大 AQI 的城市
-    - 再在该城市的时间序列上计算 6 小时滚动平均
-    - 取滚动平均最大的时间点作为污染高峰
-    - 向前回溯 6 小时作为污染过程的开始
-
-    返回 (city, start_ts, end_ts) 或 None。
+    Heuristic:
+    - find the city with highest max AQI
+    - within that city's time series, compute 6-hour rolling mean
+    - pick the time of maximum rolling mean as peak
+    - define episode as [peak - 6h, peak]
     """
     if df.empty or "aqi" not in df.columns:
         return None
 
-    # 选出 AQI 峰值最高的城市
     city_max = (
         df.groupby("city")["aqi"]
         .max()
@@ -50,18 +48,19 @@ def _auto_detect_pollution_episode(df: pd.DataFrame) -> tuple[str, pd.Timestamp,
 
 def render_story_view(hourly_df: pd.DataFrame) -> None:
     """
-    数据故事视图：自动挖掘一个“典型污染过程”，并用阴影区高亮。"""
+    Data story view: highlight an automatically detected pollution episode.
+    """
     if hourly_df.empty:
-        st.info("当前筛选条件下没有数据用于讲述故事。")
+        st.info("No data available for the current filters to render story view.")
         return
 
     if "timestamp" not in hourly_df.columns or "aqi" not in hourly_df.columns:
-        st.warning("缺少 timestamp / aqi 字段，无法构建数据故事。")
+        st.warning("Missing 'timestamp' or 'aqi' column, cannot build story view.")
         return
 
     result = _auto_detect_pollution_episode(hourly_df)
     if result is None:
-        st.info("未能自动识别出明显的污染过程，可尝试扩大时间范围。")
+        st.info("Failed to detect a clear pollution episode. Try expanding the time range.")
         return
 
     focus_city, start_ts, end_ts = result
@@ -72,7 +71,7 @@ def render_story_view(hourly_df: pd.DataFrame) -> None:
     )
     story_df = story_df.sort_values("timestamp")
 
-    st.markdown(f"### 自动生成的数据故事示例：**{focus_city}** 的一次污染过程")
+    st.markdown(f"### Automatically detected pollution episode in **{focus_city}**")
 
     fig = px.line(
         story_df,
@@ -91,13 +90,12 @@ def render_story_view(hourly_df: pd.DataFrame) -> None:
     fig.update_layout(
         height=450,
         margin=dict(l=0, r=0, t=10, b=0),
-        xaxis_title="时间",
+        xaxis_title="Time",
         yaxis_title="AQI",
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # 文本说明，可在报告中扩写
     episode_df = story_df[
         (story_df["timestamp"] >= start_ts)
         & (story_df["timestamp"] <= end_ts)
@@ -108,14 +106,12 @@ def render_story_view(hourly_df: pd.DataFrame) -> None:
 
     st.markdown(
         f"""
-        **故事摘要（可在报告中扩写）**
+        **Episode summary (for report narrative)**
 
-        - 城市：**{focus_city}**
-        - 污染过程时间段：**{start_ts:%Y-%m-%d %H:%M} ~ {end_ts:%Y-%m-%d %H:%M}**
-        - 该时间段内 AQI 最大值约为 **{max_aqi:.0f}**
-        - 该时间段 AQI 平均值约为 **{mean_aqi:.0f}**，显著高于该城市全局平均 AQI **{global_mean:.0f}**
-
-        在期末报告中，你可以进一步结合气象条件、节假日、管控措施等外部信息，
-        对这段污染过程进行更深入的叙事分析。
+        - City: **{focus_city}**
+        - Episode period: **{start_ts:%Y-%m-%d %H:%M} ~ {end_ts:%Y-%m-%d %H:%M}**
+        - Max AQI during episode: **{max_aqi:.0f}**
+        - Average AQI during episode: **{mean_aqi:.0f}**
+        - City-wide average AQI over full period: **{global_mean:.0f}**
         """,
     )

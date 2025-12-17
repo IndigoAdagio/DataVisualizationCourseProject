@@ -8,28 +8,26 @@ def render_time_view(
     selected_cities: list[str],
     value_col: str = "aqi",
 ) -> None:
-    """
-    时间序列视图：支持按小时 / 按日聚合两种粒度。"""
+    """Time-series view with hourly/daily aggregation options."""
     if hourly_df.empty:
-        st.info("当前筛选条件下没有数据用于绘制时间序列。")
+        st.info("No data available for the current filters to render time-series view.")
         return
 
     if "timestamp" not in hourly_df.columns:
-        st.warning("缺少 timestamp 字段，无法绘制时间序列。")
+        st.warning("Missing 'timestamp' column, cannot render time-series view.")
         return
 
-    # 时间粒度选择
+    # Time resolution selection
     resolution = st.radio(
-        "时间粒度",
-        options=["按小时", "按日"],
+        "Time resolution",
+        options=["Daily", "Hourly"],
         horizontal=True,
         key="time_resolution_radio",
     )
 
     df = hourly_df.copy()
 
-    # 聚合到日粒度
-    if resolution == "按日":
+    if resolution == "Daily":
         if "date" not in df.columns:
             df["date"] = df["timestamp"].dt.date
         group_cols = ["date", "city"]
@@ -49,7 +47,7 @@ def render_time_view(
         df = df[df["city"].isin(selected_cities)]
 
     if df.empty:
-        st.info("筛选后的时间序列为空，请调整筛选条件。")
+        st.info("Filtered time-series is empty. Try relaxing the filters.")
         return
 
     fig = px.line(
@@ -62,9 +60,9 @@ def render_time_view(
     fig.update_layout(
         height=450,
         margin=dict(l=0, r=0, t=10, b=0),
-        xaxis_title="时间",
+        xaxis_title="Time",
         yaxis_title=value_col.upper(),
-        legend_title="城市",
+        legend_title="City",
     )
     fig.update_xaxes(rangeslider_visible=True)
 
